@@ -1,0 +1,63 @@
+---
+title: "Machine Learning Project"
+author: "Allan Meirino"
+date: "14 de dezembro de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Training and Testing Data
+
+For this project were collected body movement data in two different bases. The first, to be used to train the machine learning model, is called "training". The second, much smaller, is used to test the effectiveness of the chosen model, and is called "testing".  
+The "training" table, in turn, was subdivided into two smaller tables: one called "true_train" to effectively train the algorithms; and another called "pre_test" to test such models and help in deciding what will be the final model.
+
+```{r}
+library(caret)
+training <- read.csv("pml-training.csv")
+training <- training[, c(2:11, 37:49, 60:68, 84:86, 102, 113:124, 140, 151:160)]
+set.seed(3628694)
+inTrain = createDataPartition(training$classe, p = 3/4)[[1]]
+true_train = training[inTrain, ]
+pre_test = training[-inTrain, ]
+testing <- read.csv("pml-testing.csv")
+testing <- testing[, c(2:11, 37:49, 60:68, 84:86, 102, 113:124, 140, 151:160)]
+```
+
+Thus, the table "true_train" ended with `r nrow(true_train)` observations; the table "pre_test" with `r nrow(pre_test)` observations and the table "testing" with `r nrow(testing)` observations.
+
+
+## Trying Some Algorithms
+
+Training was done for two types of algorithms.  
+Initially, tree processing was used, and then the "LDA" method in Model Based Prediction was attempted.  
+Attempts with linear regressions and other methods were unsuccessful due to the incompatibility of the data used and / or the equipment (computer) used for data processing.  
+A final attempt was made by combining the two methods.  
+The results are shown below.
+
+```{r}
+mod_trees <- train(classe ~ ., data = true_train, method = "rpart")
+pred_trees <- predict(mod_trees, pre_test)
+confusionMatrix(pre_test$classe, pred_trees)
+mod_lda <- train(classe ~ ., data = true_train, method = "lda",
+                   preProc = "pca")
+pred_lda <- predict(mod_lda, pre_test)
+confusionMatrix(pre_test$classe, pred_lda)
+comb_df <- data.frame(pred_trees, pred_lda, classe = pre_test$classe)
+comb_mod <- train(classe ~ ., method = "gam", data = comb_df)
+confusionMatrix(pre_test$classe, predict(comb_mod, pre_test))
+```
+
+
+## Final Model
+
+As the final model the "LDA" was chosen, with pre-processing of the data through Principal Component Analysis (PCA).
+
+```{r}
+res <- predict(mod_lda, testing)
+```
+
+The accuracy of the algorithm is 0.7135 and the results, after being applied on the "testing" table, were 17 correct answers.
